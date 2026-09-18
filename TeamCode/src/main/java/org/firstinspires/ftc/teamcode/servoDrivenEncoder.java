@@ -1,0 +1,122 @@
+package org.firstinspires.ftc.teamcode;
+
+import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.util.Range;
+
+@Config
+public class servoDrivenEncoder {
+
+
+    OverflowEncoder encoder;
+    CRServo servo1, servo2;
+    int currentPos;
+    double output = 0;
+    int targetPos;
+    double lastVelocity;
+
+
+    public static double P = 0.00035;
+    public static double I = 0.00002;
+    public static double D = 0.00004;
+
+    PIDFCustomLoop controller = new PIDFCustomLoop(P, I, D, 0);
+
+    public servoDrivenEncoder(OverflowEncoder encoder, CRServo servo1, CRServo servo2){
+        controller.reset();
+
+        this.encoder = encoder;
+        this.servo1 = servo1;
+        this.servo2 = servo2;
+
+        this.servo1.setDirection(servo1.getDirection());
+        this.servo2.setDirection(servo2.getDirection());
+
+        controller.setTolerance(15);
+        controller.setSetPoint(0);
+        targetPos = 0;
+    }
+
+    public void setTargetPos(int target){
+        controller.setSetPoint(target);
+        targetPos = target;
+    }
+
+    public boolean runToTarget(){
+        currentPos = getCurrentPosition();
+        output = controller.calculate(currentPos, targetPos, getCurrentVelocity());
+        if (!controller.atSetPoint()){
+            setServoPowers(output);
+            return false;
+        } else {
+            stopServos();
+            return true;
+        }
+    }
+
+    public void setPGain(){
+        controller.setP(P);
+    }
+    public void setIGain(){
+        controller.setI(I);
+    }
+
+
+    public void setDGain(){
+        controller.setD(D);
+    }
+
+    private void setServoPowers(double p){
+        //p = Range.clip(Math.abs(p), 0, 1)*(p/Math.abs(p));
+        p = Range.clip(p, -1, 1);
+        servo1.setPower(p);
+        servo2.setPower(p);
+    }
+
+    public void stopServos(){
+        servo1.setPower(0);
+        servo2.setPower(0);
+    }
+
+    public double getCurrentVelocity(){
+        double velocity;
+        double vel = encoder.getPositionAndVelocity().velocity;
+        if (!Double.isNaN(vel) && Double.isFinite(vel)){
+            velocity = vel;
+            lastVelocity = velocity;
+        } else {
+            velocity = lastVelocity;
+        }
+        return velocity;
+    }
+
+    public double getServoPower(){
+        return servo1.getPower();
+    }
+
+    public int getCurrentPosition(){
+        return encoder.getPositionAndVelocity().position;
+    }
+
+    public double getCurrentError(){
+        return controller.getPositionError();
+    }
+
+    public double getOutput(){
+        return output;
+    }
+
+    public int getSetPos(){
+        return (int) controller.getSetPoint();
+    }
+
+    public boolean getAtPoint(){
+        return controller.atSetPoint();
+    }
+
+    public double[] getPID(){
+        return controller.getCoefficients();
+    }
+
+}

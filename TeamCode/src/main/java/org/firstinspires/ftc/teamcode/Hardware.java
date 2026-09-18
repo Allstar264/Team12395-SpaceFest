@@ -1,0 +1,1123 @@
+/* Copyright (c) 2022 FIRST. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted (subject to the limitations in the disclaimer below) provided that
+ * the following conditions are met:
+ *
+ * Redistributions of source code must retain the above copyright notice, this list
+ * of conditions and the following disclaimer.
+ *
+ * Redistributions in binary form must reproduce the above copyright notice, this
+ * list of conditions and the following disclaimer in the documentation and/or
+ * other materials provided with the distribution.
+ *
+ * Neither the name of FIRST nor the names of its contributors may be used to endorse or
+ * promote products derived from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED BY THIS
+ * LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+package org.firstinspires.ftc.teamcode;
+
+import android.content.Context;
+import android.graphics.Color;
+import androidx.annotation.NonNull;
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.*;
+import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
+import com.acmerobotics.roadrunner.ftc.RawEncoder;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.ivy.Command;
+import com.pedropathing.ivy.behaviors.InterruptedBehavior;
+import com.pedropathing.math.Pose;
+import com.pedropathing.math.Twist;
+import com.pedropathing.math.Vector;
+import com.pedropathing.math.Vector2D;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.rev.RevColorSensorV3;
+import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.*;
+import com.qualcomm.robotcore.util.Range;
+import org.firstinspires.ftc.robotcore.external.navigation.*;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.lang.Math;
+
+@Config
+public class Hardware {
+
+    // We hold a reference to the active OpMode to access hardwareMap/telemetry safely
+    private OpMode myOpMode;
+
+    public Limelight3A limelight;
+    public Follower pedroFollower;
+    public LLResult result;
+    public GoBildaPinpointDriver pinpointDriver;
+
+    public RevColorSensorV3 colorSensor0, colorSensor1, colorSensor2;
+
+    public String mag = "GPP"; // EACH +1 ON THE MAG INDEX IS ONE CW TURN
+    public String pattern = "PPG";// a pattern is better than no pattern
+    public int chamber = 0;
+    public int firingChamber = 1;
+
+    // Drivetrain motors for a mecanum chassis
+    public DcMotor frontLeftDrive, backLeftDrive, frontRightDrive, backRightDrive;
+
+    public DcMotorEx shooter2, shooter, spindexer, intake;
+    public CRServo turretR, turretL;
+    public OverflowEncoder turretE, spindexerE;
+
+    public TurretModule turretModule;
+
+    private final double driveToTurretRatio = 3; // 3.2 rotations to 1, 120/40 teeth
+    private final double turretTicksPerRevolution = driveToTurretRatio *8192;// RevCoder CPR * ratio per 1 turret rev
+    public final double turretTicksPerDegree = turretTicksPerRevolution/360;
+    private final int shooterMaxTPM = 2800;
+
+    private final static double spoolToSpindexerRatio = 1;
+    private final static double spindexerTicksPerRevolution = spoolToSpindexerRatio*((((1+(46./17))) * (1+(46./11))) * 28);
+    public final static double spindexerTicksPerDegree = spindexerTicksPerRevolution/360;
+    public final double spindexerETicksPerRevolution = 8192;
+    public final double spindexerETicksPerDegree = spindexerETicksPerRevolution/360;
+    public double spindexerFudge = 0;
+    public int spindexerTarget = 0;
+
+    // Servos
+    private Servo hoodAngle;
+
+    // physics
+    private final double yOffset = 16.5*2.54; //cm
+    private final double verticalTargetDistance = 70-yOffset;
+
+
+    // IMU is used for field-centric heading
+    private IMU imu;
+
+    // COLOR SENSOR
+    private Context appContext;
+    public Hardware(OpMode opmode) {
+        myOpMode = opmode;
+    }
+
+    /**
+     * Initialize hardware mappings and base motor/IMU configuration.
+     * Call once from your OPMode before driving.
+     */
+    public void init() {
+        pedroFollower = Constants.create(myOpMode.hardwareMap);
+
+        appContext = myOpMode.hardwareMap.appContext;
+        // --- HARDWARE MAP NAMES ---
+        limelight = myOpMode.hardwareMap.get(Limelight3A.class, "limelight-rfc");
+
+        frontLeftDrive = myOpMode.hardwareMap.get(DcMotor.class, "front_left_drive");
+        backLeftDrive = myOpMode.hardwareMap.get(DcMotor.class, "back_left_drive");
+        frontRightDrive = myOpMode.hardwareMap.get(DcMotor.class, "front_right_drive");
+        backRightDrive = myOpMode.hardwareMap.get(DcMotor.class, "back_right_drive");
+
+        shooter = myOpMode.hardwareMap.get(DcMotorEx.class, "shooter");
+        shooter2 = myOpMode.hardwareMap.get(DcMotorEx.class, "turret");
+        turretE = new OverflowEncoder( new RawEncoder( myOpMode.hardwareMap.get(DcMotorEx.class, "turret")));
+        spindexer = myOpMode.hardwareMap.get(DcMotorEx.class, "spindexer");
+        intake = myOpMode.hardwareMap.get(DcMotorEx.class, "intake");
+
+
+        hoodAngle = myOpMode.hardwareMap.get(Servo.class, "hood_angle");
+        turretR = myOpMode.hardwareMap.get(CRServo.class, "turretR");
+        turretL = myOpMode.hardwareMap.get(CRServo.class, "turretL");
+
+
+        spindexerE = new OverflowEncoder(new RawEncoder( myOpMode.hardwareMap.get(DcMotorEx.class, "front_left_drive")));
+        colorSensor0 = myOpMode.hardwareMap.get(RevColorSensorV3.class, "color0");
+        colorSensor1 = myOpMode.hardwareMap.get(RevColorSensorV3.class, "color1");
+        colorSensor2 = myOpMode.hardwareMap.get(RevColorSensorV3.class, "color2");
+
+        pinpointDriver = myOpMode.hardwareMap.get(GoBildaPinpointDriver.class, "pinpoint");
+
+        // --- IMU ORIENTATION ---
+        // TODO: UPDATE ALONGSIDE ROADRUNNER
+        // The two enums MUST reflect the physical orientation of the REV Hub on the robot.
+        // WHY: Field-centric depends on accurate yaw; wrong orientation => wrong heading rotations.
+        IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
+                RevHubOrientationOnRobot.LogoFacingDirection.FORWARD,        // e.g., logo pointing up
+                RevHubOrientationOnRobot.UsbFacingDirection.UP));  // e.g., USB ports towards right
+
+        imu = myOpMode.hardwareMap.get(IMU.class, "imu");
+        imu.initialize(parameters);
+
+        // NOTE: Reset yaw at init so heading starts ~0 at OpMode start.
+        // If you prefer "press A to zero heading", move this to your OpMode and bind to a button.
+        imu.resetYaw();
+
+        // --- MOTOR DIRECTIONS ---
+        // NOTE: these reversals are common for mecanum so "axial + lateral" maps correctly.
+        frontLeftDrive.setDirection(DcMotor.Direction.FORWARD);
+        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
+        frontRightDrive.setDirection(DcMotor.Direction.REVERSE);
+        backRightDrive.setDirection(DcMotor.Direction.FORWARD);
+
+        shooter2.setDirection(DcMotorEx.Direction.FORWARD);
+        shooter.setDirection(DcMotorEx.Direction.REVERSE);
+        spindexer.setDirection(DcMotorEx.Direction.FORWARD);
+        intake.setDirection(DcMotorEx.Direction.FORWARD);
+
+        turretR.setDirection(DcMotorSimple.Direction.REVERSE);
+        turretL.setDirection(DcMotorSimple.Direction.REVERSE);
+        turretE.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        spindexerE.setDirection(DcMotorSimple.Direction.REVERSE);
+
+        turretModule = new TurretModule(turretE, turretR, turretL);
+
+        // --- ENCODER MODES ---
+        // WHY: Reset once at init for a clean baseline; then RUN_USING_ENCODER for closed-loop speed control if needed.
+
+        shooter2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        spindexer.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        intake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+
+        // NOTE: BRAKE helps with precise stopping; FLOAT cna feel smoother when coasting.
+        frontLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backLeftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        frontRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        backRightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+        shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        spindexer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        spindexer.setTargetPosition(0);
+        spindexer.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        spindexer.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        spindexer.setVelocityPIDFCoefficients(14,4,1,4);
+        spindexer.setPower(1);
+
+        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooter.setVelocityPIDFCoefficients(100, 5, 1, 5);
+        shooter2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+
+        intake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        colorSensor0.setGain(50);
+        colorSensor1.setGain(50);
+        colorSensor2.setGain(40);
+
+        // SERVO POSITIONS
+
+        hoodAngle.setPosition(0.3);
+
+        limelight.start();
+        limelight.pipelineSwitch(1);
+
+        //pattern = "PPG";
+        mag = "GPP";
+
+        myOpMode.telemetry.addData("Status", "Hardware Initialized");
+        //myOpMode.telemetry.addData("PIDF", shooter.getPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER));
+        myOpMode.telemetry.update();
+
+        FtcDashboard.getInstance().startCameraStream(limelight, 20);
+    }
+
+
+    public double tpsToLinearVelocityMETERS() {
+        double radsPerSecond = (shooter.getVelocity() / 28) * (2*Math.PI);
+        double wheelRadiusMeters = 0.072 /2;
+        double velocity = radsPerSecond * wheelRadiusMeters;
+        return  velocity * efficiency;
+    }
+
+    private final double relativeGoalHeightMeters = 0.9845 - 0.18775; // goal - robot
+    private final double g = 9.81;
+    private final double efficiency = Math.hypot(2.7686/1.21, (0.5)*g*1.21) / 12.11; // 109 inches in 1.21 sec, 12.11 m/s
+
+    public double hoodAngleToBallisticAngle(){
+        double startingReferenceAngle = 61.38954; // deg, measured top hood line angle from plate
+        double servoAngleTraveled = 300 * (hoodAngle.getPosition()); // 300 is ROM of servo
+        // starting reference is at 1, invert position
+
+        double hoodAngleTraveled =  startingReferenceAngle - ((servoAngleTraveled)  / (189/20.));
+        // decreases as servo travels to 0
+
+        double ballistic = 90-hoodAngleTraveled; // 180 - 90 - angle = x
+
+        return ballistic;
+    }
+
+    public double ballisticAngleToHoodAngle(double ballisticAngle){
+        double startingReferenceAngle = 61.38954;
+
+        double hoodAngleTraveled = 90 - ballisticAngle;
+        double servoAngleTraveled = (startingReferenceAngle - hoodAngleTraveled) * (189/20.);
+        double hoodAngle =  (servoAngleTraveled/300);
+
+        return hoodAngle;
+    }
+
+    public double compensatedHoodAngleSolve(){
+        double ballisticAngle = Math.asin( (Math.sqrt(2*g*(relativeGoalHeightMeters + 0.18775))) / tpsToLinearVelocityMETERS());
+        if (!Double.isNaN(ballisticAngle) && ballisticAngle > 0 && ballisticAngle < 90){
+            return ballisticAngleToHoodAngle(ballisticAngle);
+        }
+        return Double.NaN;
+    }
+
+    public boolean isTargetReachable(double velocity, double angle, double distance){
+        double t = timeToTarget(velocity, angle);
+        double vX = velocity*Math.cos(Math.toRadians(angle));
+
+        double calculatedDistance = vX*t;
+
+        return (calculatedDistance > distance - 3 && calculatedDistance < distance + 3);
+    }
+
+    public double timeToTarget(double velocity, double angle){
+        double vY = velocity*Math.sin(Math.toRadians(angle));
+
+        double peakHeight = (vY*vY ) / (2*g);
+
+        double endArcHeight = (peakHeight - relativeGoalHeightMeters);
+        if (endArcHeight < 0){
+            endArcHeight = 0;
+        }
+        myOpMode.telemetry.addData("calculated height: ", peakHeight);
+        myOpMode.telemetry.addData("cut height: ", endArcHeight);
+        double endArcTime = Math.sqrt( (2*endArcHeight) / g);
+        double startArcTime = vY / g;
+
+        double totalTime = startArcTime + endArcTime;
+        if (totalTime < 0){
+            totalTime = 0;
+        }
+        return totalTime;
+    }
+
+    public void setLocalizerPosition(Pose pose){
+        try {
+            pedroFollower.setPose(pose);
+            pedroFollower.update();
+        } catch (Exception ex) {
+
+        }
+    }
+
+    public double getPinPointHeading(){
+        return pinpointDriver.getHeading(AngleUnit.DEGREES);
+    }
+
+    /**
+     * Field-Centric drive (field-relative): rotates driver inputs by -heading so forward is field-forward.
+     * @param axial     forward/backward from stick
+     * @param lateral   left/right from stick
+     * @param yaw       rotation command
+     */
+    public void driveFieldCentric(double axial, double lateral, double yaw) {
+        // NOTE: Heading is in radians; positive CCW. We rotate the input vector by -heading.
+        double botHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
+
+        // Input rotation for field frame
+        double lateralRotation = lateral * Math.cos(-botHeading) - axial * Math.sin(-botHeading);
+        double axialRotation = lateral * Math.sin(-botHeading) + axial * Math.cos(-botHeading);
+
+        // WHY: Standard mecanum mixing (A + L + Y. etc.). Values may exceed |1|; we normalize below.
+        double frontLeftPower  = axialRotation + lateralRotation + yaw;
+        double frontRightPower = axialRotation - lateralRotation - yaw;
+        double backLeftPower   = axialRotation - lateralRotation + yaw;
+        double backRightPower  = axialRotation + lateralRotation - yaw;
+
+        // Normalize so that the highest magnitude is 1.0, preserving ratios
+        double max = Math.max(Math.max(Math.abs(frontLeftPower), Math.abs(frontRightPower)),
+                Math.max(Math.abs(backLeftPower), Math.abs(backRightPower)));
+        if (max > 1.0) {
+            frontLeftPower  /= max;
+            frontRightPower /= max;
+            backLeftPower   /= max;
+            backRightPower  /= max;
+        }
+
+        setDrivePower(frontLeftPower, frontRightPower, backLeftPower, backRightPower);
+    }
+
+    /**
+     * Low-level power application.
+     * NOTE: No ramping here-add slew rate limiting on TeleOP if you want softer starts.
+     */
+    public void setDrivePower(double frontLeftWheel, double frontRightWheel, double backLeftWheel, double backRightWheel) {
+        frontLeftDrive.setPower(frontLeftWheel);
+        frontRightDrive.setPower(frontRightWheel);
+        backLeftDrive.setPower(backLeftWheel);
+        backRightDrive.setPower(backRightWheel);
+
+    }
+
+    public void disableDriveEncoders(){
+        frontLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        frontRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+    }
+
+
+    public void setIntakeVelocity(double vel){
+        intake.setVelocity(vel);
+    }
+
+    public void setShooterVelocity(double tPs){
+        shooter.setVelocity(Range.clip(tPs, 0, shooterMaxTPM));
+        shooter2.setPower(shooter.getPower());
+    }
+
+    public void setHoodAngle(double angle){
+        hoodAngle.setPosition(angle);
+    }
+
+    public double getCurrentSpindexerDegreesPos(){
+        return spindexer.getCurrentPosition()/spindexerTicksPerDegree;
+    }
+
+    private double normalizeTo360deg(double deg){
+        return ((deg % 360) + 360 ) % 360;
+    }
+
+    private double wrapTo180deg(double deg){
+        return ((deg + 180) % 360 + 360) % 360 - 180;
+    }
+    // 8192
+    public void getSpindexerOffset(){
+        double encoderDeg = normalizeTo360deg(spindexerE.getPositionAndVelocity().position/spindexerETicksPerDegree);
+        double motorDeg = normalizeTo360deg(spindexer.getCurrentPosition()/spindexerTicksPerDegree);
+
+        spindexerFudge = wrapTo180deg(encoderDeg - motorDeg);
+    }
+
+    public void spindexerHandler(int targetAdd){
+        getSpindexerOffset();
+        spindexerTarget += targetAdd;
+
+        spindexer.setTargetPosition( (int) ( (spindexerTarget - spindexerFudge) * spindexerTicksPerDegree) );
+
+        spindexer.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        spindexer.setVelocity(1000);
+        //  -intake-
+        //    (0)
+        // (1)   (2)
+        int turns = targetAdd / 120;
+
+        if (turns < 0){// cw
+            chamber = (chamber + Math.abs(turns)) % 3;
+        } else if (turns > 0){// ccw
+            chamber = (chamber + 2*Math.abs(turns)) % 3;
+        }
+
+        firingChamber = (chamber+2) % 3;
+    }
+
+    public void maintainSpindexerHandler(){
+        getSpindexerOffset();
+        spindexer.setTargetPosition( (int) ( (spindexerTarget - spindexerFudge) * spindexerTicksPerDegree) );
+
+        spindexer.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        spindexer.setVelocity(1000);
+    }
+
+    public void spindexerHandler(int targetAdd,  int vel){
+        getSpindexerOffset();
+        spindexerTarget += targetAdd;
+
+        spindexer.setTargetPosition( (int) ( (spindexerTarget - spindexerFudge) * spindexerTicksPerDegree) );
+
+
+        spindexer.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        spindexer.setVelocity(vel);
+        //  -intake-
+        //    (0)
+        // (1)   (2)
+        int turns = targetAdd / 120;
+
+        if (turns < 0){// cw
+            chamber = (chamber + Math.abs(turns)) % 3;
+        } else if (turns > 0){// ccw
+            chamber = (chamber + 2*Math.abs(turns)) % 3;
+        }
+
+        firingChamber = (chamber+2) % 3;
+    }
+
+    public double getHeading() {
+        YawPitchRollAngles orientation = imu.getRobotYawPitchRollAngles();
+        return orientation.getYaw(AngleUnit.DEGREES);
+    }
+
+    public boolean processLLresult(){
+        result = limelight.getLatestResult();
+        return ((result != null && result.isValid()) &&
+                (result.getFiducialResults() != null && !result.getFiducialResults().isEmpty()));
+    }
+
+    public Pose fetchLocalizedPose(double headingOffset){
+        boolean check  = processLLresult();
+        if (check){
+            List<LLResultTypes.FiducialResult> fresult = result.getFiducialResults();
+            List<LLResultTypes.FiducialResult> fresultCC = new ArrayList<>(fresult);
+
+            myOpMode.telemetry.addData("Closest Tag ID: ", fresult.get(0).getFiducialId());
+            myOpMode.telemetry.addData("Tags: ", fresult.size());
+
+            //TODO check if filtering of tags can be done thru LL config instead
+            for (LLResultTypes.FiducialResult fiducial : fresultCC){
+                if (fiducial.getFiducialId() == 21 || fiducial.getFiducialId() == 22 || fiducial.getFiducialId() == 23){
+                    fresult.remove(fiducial);
+                }
+            }
+
+            if (!fresult.isEmpty()) {
+                // placeholder values
+                double cameraOffset = -77.9953 / 25.4 ;
+                double turretAngle = -turretModule.getCurrentDegrees();
+                double turretOffset = 55 / 25.4;
+
+                // LL uses meters & deg, RR uses inches & rads
+                limelight.updateRobotOrientation(getHeading() + turretAngle + headingOffset);
+
+                Pose3D rawMT2Pose3D = result.getBotpose_MT2();
+                Position rawMT2Position = rawMT2Pose3D.getPosition().toUnit(DistanceUnit.INCH);
+
+                //TODO translate LL grid into RR grid before finalizing (including yaw & units)
+                Pose rawPose = new Pose(rawMT2Position.x,
+                        rawMT2Position.y,
+                        rawMT2Pose3D.getOrientation().getYaw(AngleUnit.RADIANS));
+
+                Pose rotatedPose = new Pose(rawPose.x(), rawPose.y(),
+                        rawPose.heading() + Math.toRadians(-turretAngle));
+
+                myOpMode.telemetry.addData("Raw Pose: ", rawPose);
+
+                Vector2D translatedCoordinates = rotatedPose.toVector2D()
+                        .plus(new Vector(turretOffset, rotatedPose.heading()).toVector2D());
+
+                Pose translatedPose = new Pose(translatedCoordinates.x(),
+                        translatedCoordinates.y(), rotatedPose.heading());
+
+                myOpMode.telemetry.addData("Translated Pose: ", translatedPose);
+
+                return translatedPose;
+            }
+        }
+        return new Pose(Double.NaN, Double.NaN, Math.toRadians(0));
+    }
+
+    public double getHeadingVelocity(){
+        return pinpointDriver.getHeadingVelocity(UnnormalizedAngleUnit.DEGREES) - (turretModule.getCurrentVelocity()/turretTicksPerDegree);
+    }
+
+    /**
+     *
+     * @param target
+     * @param currentPose
+     * @return radians
+     */
+    public double turretAngleToTarget(Pose target, Pose currentPose){
+        // we only apply turret axis-bot center offset because we want to find targetHeading as the center of the turret.
+        double turretOffset = 55 / 25.4;
+
+        Pose turretPose = currentPose.exp(new Twist(-turretOffset, 0, 0));
+
+        Pose targetComponent = target.minus(turretPose);
+
+        return UtilFunctions.normalizeRadians(targetComponent.heading()-currentPose.heading());
+    }
+
+    public boolean processObelisk(){
+        if (processLLresult()){
+            List<LLResultTypes.FiducialResult> fresult = result.getFiducialResults();
+            List<LLResultTypes.FiducialResult> fresultCC = new ArrayList<>(fresult);
+
+            myOpMode.telemetry.addData("Closest Tag ID: ", fresult.get(0).getFiducialId());
+            myOpMode.telemetry.addData("Tags: ", fresult.size());
+
+
+            for (LLResultTypes.FiducialResult fiducial : fresultCC){
+                if (fiducial.getFiducialId() == 20 || fiducial.getFiducialId() == 24){
+                    fresult.remove(fiducial);
+                }
+            }
+
+            if (!fresult.isEmpty()) {
+                int closestObelisk = fresult.get(0).getFiducialId();
+                if (closestObelisk == 21){
+                    pattern = "GPP";
+                    myOpMode.telemetry.addData("Tag 21: ", "GPP");
+                    myOpMode.telemetry.update();
+                    return true;
+                } else if (closestObelisk == 22) {
+                    pattern = "PGP";
+                    myOpMode.telemetry.addData("Tag 22: ", "PGP");
+                    myOpMode.telemetry.update();
+
+                    return true;
+                } else if (closestObelisk == 23){
+                    pattern = "PPG";
+                    myOpMode.telemetry.addData("Tag 23: ", "PPG");
+                    myOpMode.telemetry.update();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public int[] solvePattern(){
+        if (!mag.contains("0") && mag.contains("G") && (mag.lastIndexOf('G') == mag.indexOf('G')) ){
+            // if I have a full mag with Green and know the pattern
+            int greenIndex = mag.indexOf("G");
+            switch (pattern) {
+                case "GPP":
+                    if (greenIndex == firingChamber) {// if green is selected
+                        return new int[]{0, -2};// don't move, turn right twice
+                    } else if (mag.charAt((firingChamber + 1) % mag.length()) != 'G') {
+                        // if the color to my ccw isn't green, turn left, then turn right twice
+                        return new int[]{1, -2};
+                    } else {
+                        // the color to my ccw is green, turn right (2x left), then turn right twice
+                        return new int[]{2, -2};
+                    }
+
+                case "PGP":
+                    if (greenIndex == firingChamber) { // if green is selected
+                        return new int[]{1, -2}; //  turn left, then turn right twice
+                    } else if (mag.charAt((firingChamber + 1) % mag.length()) != 'G') {
+                        // if the color to my ccw isn't green, turn right (2x left), then turn right twice
+                        return new int[]{2, -2};
+                    } else {
+                        // the color to my ccw is green, don't move, turn right twice
+                        return new int[]{0, -2};
+                    }
+
+                case "PPG":
+                    if (greenIndex == firingChamber) { // if green is selected
+                        return new int[]{2, 2}; //  turn cw (2x ccw), then turn cw twice
+                    } else if (mag.charAt((firingChamber + 1) % mag.length()) != 'G') {
+                        // if the color to my ccw isn't green, don't move, turn cw twice
+                        return new int[]{0, -2};
+                    } else {
+                        // the color to my ccw is green, turn ccw, then turn cw twice
+                        return new int[]{1, -2};
+                    }
+            }
+        }
+        myOpMode.telemetry.addData(":", mag, pattern, firingChamber);
+        return null;
+    }
+
+    public int[] solveAltPattern(String setPattern){
+        String reconstruct = String.valueOf(mag.charAt(chamber) + mag.charAt((chamber + 1) % 3) + mag.charAt((chamber + 2) % 3));
+        if  (reconstruct.equals(setPattern)) {
+            return new int[] {0, 2};
+        }
+        return null;
+    }
+
+    public void setMagManualBulk(String set){
+        //   (firing chamber on 2)
+        //      (chamber on 0)         201
+        // set things in a cw manner ( XYZ )
+        //    0(X)
+        // 1(Z)   2(Y)
+        StringBuilder magBuilder = new StringBuilder(mag);
+        for (int i=0; i<3; i++) {
+            magBuilder.setCharAt((firingChamber + i) % 3, set.charAt(i));
+            mag = magBuilder.toString();
+        }
+    }
+    public void setChamberManual(Character c){
+        StringBuilder magBuilder = new StringBuilder(mag);
+        magBuilder.setCharAt(chamber, c);
+        mag = magBuilder.toString();
+    }
+
+    public enum colorTypes {
+        UNKNOWN,
+        NONE,
+        PURPLE,
+        GREEN
+    }
+
+    public void scanColor(){
+        NormalizedRGBA color = colorSensor0.getNormalizedColors();
+        float[] hsvValues = new float[3];
+        Color.colorToHSV(color.toColor(), hsvValues);
+
+        colorTypes color0 = classifyColor(hsvValues);
+
+        color = colorSensor1.getNormalizedColors();
+        Color.colorToHSV(color.toColor(), hsvValues);
+
+        colorTypes color1 = classifyColor(hsvValues);
+
+        color = colorSensor2.getNormalizedColors();
+        Color.colorToHSV(color.toColor(), hsvValues);
+
+        colorTypes color2 = classifyColor(hsvValues);
+
+        //    (0)
+        // (1)   (2)
+        String colorHolder = "";
+
+        switch (color2) {
+            case GREEN:
+                colorHolder += "G";
+                break;
+
+            case PURPLE:
+                colorHolder += "P";
+                break;
+
+            case NONE:
+            case UNKNOWN:
+                colorHolder += "0";
+                break;
+        }
+
+        switch (color0) {
+            case GREEN:
+                colorHolder += "G";
+                break;
+
+            case PURPLE:
+                colorHolder += "P";
+                break;
+
+            case NONE:
+            case UNKNOWN:
+                colorHolder += "0";
+                break;
+        }
+
+        switch (color1) {
+            case GREEN:
+                colorHolder += "G";
+                break;
+
+            case PURPLE:
+                colorHolder += "P";
+                break;
+
+            case NONE:
+            case UNKNOWN:
+                colorHolder += "0";
+                break;
+        }
+
+        setColorMagManualBulk(colorHolder);
+    }
+
+    public void setColorMagManualBulk(String set){
+        //   (firing chamber on 2)
+        //      (chamber on 0)         201
+        // set things in a cw manner ( XYZ )
+        //    0(X)
+        // 1(Z)   2(Y)
+        StringBuilder magBuilder = new StringBuilder(mag);
+        for (int i=0; i<3; i++) {
+            if (set.charAt(i) != '0') {
+                magBuilder.setCharAt((firingChamber + i) % 3, set.charAt(i));
+                mag = magBuilder.toString();
+            }
+        }
+    }
+
+    public colorTypes classifyColor(float[] hsvValues){
+        colorTypes color = colorTypes.UNKNOWN;
+        if (hsvValues[2] < 0.15){
+            color = colorTypes.NONE;
+        } else if (hsvValues[0] > 180 && hsvValues[0] <= 240){
+            color = colorTypes.PURPLE;
+        } else if ((hsvValues[1] > 0.5 && hsvValues[1] < 0.8) && (hsvValues[0] >= 120 && hsvValues[0] <= 180)){
+            color = colorTypes.GREEN;
+        }
+        return color;
+    }
+
+    public String getMagPicture(){
+        return "     ("+mag.charAt(chamber)+")  " + "\n ("+mag.charAt( (chamber+1) % 3)+")    ("+mag.charAt( (chamber+2) % 3)+")  ";
+    }
+
+    private final ArrayList<double[]> dataPoints = new ArrayList<>(Arrays.asList(
+            // 0 : distance, 1 : rpm, 2 : angle
+            new double[]{42.2, 1400, 0.9 },
+            new double[]{63.2, 1500, 0.75},
+            new double[]{82  , 1600, 0.6 },
+            new double[]{95.5, 1700, 0.5 },
+            new double[]{130 , 1900, 0.27 }
+    ));
+    private final double[] velocitySlopeList = initializeSlopeList(1);
+    private final double[] angleSlopeList = initializeSlopeList(2);
+
+    private double[] initializeSlopeList(int valueIndex){
+        int maxIndex = dataPoints.size();
+        double[] list = new double[maxIndex];
+        for (int i=0; i<maxIndex-1; i++){
+            list[i] = (
+                    (dataPoints.get(i+1)[valueIndex] - dataPoints.get(i)[valueIndex]) /
+                            (dataPoints.get(i+1)[0] - dataPoints.get(i)[0])
+            );
+        }
+
+        return list;
+    }
+
+    public double getRegressionValue(double distance, int valueIndex){
+        double returnVal;
+        double[] slopeList;
+        if (valueIndex == 1){
+            returnVal = 1400;
+            slopeList = velocitySlopeList;
+        } else {
+            returnVal = 0.9;
+            slopeList = angleSlopeList;
+        }
+
+        double velZeroIntercept = dataPoints.get(0)[valueIndex] - (slopeList[0]* dataPoints.get(0)[0]);
+
+        if (distance <= dataPoints.get(0)[0]){
+            myOpMode.telemetry.addData("Top Reference: ", dataPoints.get(0)[0] +", " + dataPoints.get(0)[valueIndex]);
+            myOpMode.telemetry.addData("Slope Reference: ", slopeList[0]);
+            returnVal = velZeroIntercept + (distance* slopeList[0]);
+            return returnVal;
+        }
+
+        for (int i = 1; i< slopeList.length; i++){
+            if ((i == slopeList.length-1 && distance >= dataPoints.get(i)[0]) ||
+                    distance > dataPoints.get(i)[0] && distance <= dataPoints.get(i+1)[0]){
+
+                myOpMode.telemetry.addData("Bottom Reference: ", dataPoints.get(i)[0] +", " + dataPoints.get(i)[valueIndex]);
+                myOpMode.telemetry.addData("Slope Reference: ", slopeList[i]);
+                returnVal = dataPoints.get(i)[valueIndex] + (distance- dataPoints.get(i)[0])* slopeList[i];
+                return returnVal;
+            }
+        }
+
+        return returnVal;
+    }
+
+
+
+    public class RoadRunnerActions {
+        public class setSpindexerTarget implements Action{
+            private int vel;
+            private int target;
+            public setSpindexerTarget(int target, int vel){
+                this.vel = vel;
+                this.target = target;
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                spindexerHandler(target, vel);
+                return false;
+            }
+        }
+        public class scanMotif implements Action {
+            public scanMotif(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+
+                boolean save = !processObelisk();
+                packet.put("Pattern: ", pattern);
+                return save;
+            }
+        }
+        public class setTurretPosition implements Action {
+            private double pos;
+            public setTurretPosition(double pos){
+                this.pos = pos;
+                turretModule.setTargetDegrees(pos);
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                turretModule.update();
+                return !turretModule.isDone();
+            }
+        }
+        public class setShooterVelocity implements Action {
+            private int vel;
+
+            public setShooterVelocity(int vel){
+                this.vel = vel;
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                setShooterVelocity(vel);
+                return false;
+            }
+        }
+
+        public class shootBalls implements Action{
+            public shootBalls(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                spindexerHandler(-480 - (spindexerTarget % 120), 1300);
+                return false;
+            }
+        }
+
+        public class setTurretPowerZero implements Action{
+            public setTurretPowerZero(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                turretModule.stopServos();
+                return false; // you are not done?
+            }
+        }
+
+        public class sortSpindexer implements Action{
+
+            public sortSpindexer(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                int[] solve = solvePattern();
+                if (solve != null) {
+                    spindexerHandler((120 * solve[0]) - (spindexerTarget % 120), 800);
+                    packet.put("Turning left: ", solve[0]);
+                    packet.put("Pattern Used: ", pattern);
+                }
+                return false;
+            }
+        }
+
+        public class shootAllBallsSlow implements Action{
+            public shootAllBallsSlow(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                spindexerHandler(-480 - (spindexerTarget % 120), 700);
+                return false;
+            }
+        }
+
+        public class shootAllBallsSlowFar implements Action{
+            public shootAllBallsSlowFar(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                spindexerHandler(-480 - (spindexerTarget % 120), 600);
+                return false;
+            }
+        }
+
+        public class setHoodAngle implements Action{
+            private double pos;
+
+            public setHoodAngle(double pos){
+                this.pos = pos;
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                setHoodAngle(pos);
+                return false;
+            }
+        }
+
+        public class setIntakeVelocity implements Action{
+            private double vel;
+            public setIntakeVelocity(double vel){
+                this.vel = vel;
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                setIntakeVelocity(vel);
+                return false;
+            }
+        }
+
+        public class scanColorSensor implements Action{
+
+            public scanColorSensor(){
+
+            }
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet){
+                scanColor();
+                int[] solve = solvePattern();
+
+                packet.put(getMagPicture(), "");
+                if (solve != null) {
+                    packet.put("Turning left: ", solve[0]);
+                }
+                myOpMode.telemetry.update();
+
+                return true;
+            }
+        }
+
+        public Action shootAllBallsSlow(){
+            return new shootAllBallsSlow();
+        }
+
+        public Action shootAllBalsFar(){
+            return new shootAllBallsSlowFar();
+        }
+        public Action scanColorToggle(){
+            return new scanColorSensor();
+        }
+
+        public Action shootAllBalls(){
+            return new shootBalls();
+        }
+
+        public Action setIntakeVel(double vel){
+            return new setIntakeVelocity(vel);
+        }
+
+        public Action setHoodAng(double angle){
+            return new setHoodAngle(angle);
+        }
+
+        public Action sortCurrentSpindexer(){
+            return new sortSpindexer();
+        }
+
+        public Action setShooterVel(int vel){
+            return new setShooterVelocity(vel);
+        }
+
+        public Action stopTurretPower(){
+            return new setTurretPowerZero();
+        }
+        public Action setTurretPos(double deg){
+            return new setTurretPosition(deg);
+        }
+        public Action scanMotif(){
+            return new scanMotif();
+        }
+
+        public Action spindexerTargetAddVel(int target, int vel){
+            return new setSpindexerTarget(target, vel);
+        }
+    }
+
+    public class PedroCommands {
+        public Command setShooterSpeed(double speed){
+            return Command.build()
+                    .setStart(() -> setShooterVelocity(speed));
+        }
+
+        public Command shootAllBalls(boolean slow){
+            if (!slow){
+                return Command.build()
+                        .setStart(() -> spindexerHandler(-480 - (spindexerTarget % 120), 600))
+                        .setDone(() -> spindexer.isBusy())
+                        .requiring(spindexer);
+            } else {
+                return Command.build()
+                        .setStart(() -> spindexerHandler(-480 - (spindexerTarget % 120), 1300))
+                        .setDone(() -> spindexer.isBusy())
+                        .requiring(spindexer);
+            }
+        }
+
+        public Command setIntakeSpeed(double speed){
+            return Command.build()
+                    .setStart(() -> setIntakeVelocity(speed));
+        }
+
+        public Command turretToPosition(double degrees){
+            return Command.build()
+                    .setStart(() -> turretModule.setTargetDegrees(degrees))
+                    .setExecute(() -> turretModule.update())
+                    .setDone(() -> turretModule.isDone())
+                    .requiring(turretModule)
+                    .setInterruptedBehavior(InterruptedBehavior.END)
+                    .setPriority(1);
+        }
+
+        public Command turretStop(){
+            return Command.build()
+                    .setStart(() -> turretModule.stopServos())
+                    .requiring(turretModule)
+                    .setPriority(0);
+        }
+
+        public Command turretAutoTrack(Pose target){
+            return Command.build()
+                    .setStart(() -> {
+                        turretModule.setTargetDegrees(turretAngleToTarget(target, pedroFollower.pose()));
+                    })
+                    .setExecute(() -> {
+                        turretModule.setTargetDegrees(turretAngleToTarget(target, pedroFollower.pose()));
+                        turretModule.update();
+                    })
+                    .setDone(() -> false)
+                    .requiring(turretModule)
+                    .setInterruptedBehavior(InterruptedBehavior.END)
+                    .setPriority(2);
+        }
+
+        public Command hoodSetAngle(double degrees) {
+            return Command.build()
+                    .setStart(() -> setHoodAngle(degrees))
+                    .requiring(hoodAngle)
+                    .setPriority(0);
+        }
+
+        public Command hoodAutoSet(Pose target){
+            return Command.build()
+                    .setExecute(() -> setHoodAngle(getRegressionValue(target.distance(pedroFollower.pose()), 2)))
+                    .requiring(hoodAngle)
+                    .setInterruptedBehavior(InterruptedBehavior.END)
+                    .setPriority(1);
+        }
+
+
+    }
+
+}
