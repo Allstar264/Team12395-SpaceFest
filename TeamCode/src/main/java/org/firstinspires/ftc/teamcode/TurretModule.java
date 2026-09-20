@@ -44,7 +44,10 @@ public class TurretModule {
         degrees = Range.clip(degrees, -maxTurnCCW, maxTurnCW);
         targetDegrees = degrees;
 
-        activeController.setSetPoint(degrees*turretTicksPerDegree);
+        double target = degrees*turretTicksPerDegree;
+
+        primaryController.setSetPoint(target);
+        secondaryController.setSetPoint(target);
     }
 
     public void update(){
@@ -128,14 +131,17 @@ public class TurretModule {
             primaryController = new PIDFCustomLoop(P1, I1, D1, F1);
             secondaryController = primaryController;
             activeController = primaryController;
+            setTargetDegrees(targetDegrees);
         } else if (controller == 2){
             secondaryController = new PIDFCustomLoop(P2, I2, D2, F2);
             primaryController = secondaryController;
             activeController = secondaryController;
+            setTargetDegrees(targetDegrees);
         } else if (controller == 3){
             primaryController = new PIDFCustomLoop(P1, I1, D1, F1);
             secondaryController = new PIDFCustomLoop(P2, I2, D2, F2);
             activeController = primaryController;
+            setTargetDegrees(targetDegrees);
         }
     }
 }
