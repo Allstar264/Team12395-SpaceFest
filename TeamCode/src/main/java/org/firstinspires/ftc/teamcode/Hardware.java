@@ -1045,29 +1045,31 @@ public class Hardware {
         }
     }
 
-    public class PedroCommands {
+    public class PedroActions {
         public Command setShooterSpeed(double speed){
             return Command.build()
-                    .setStart(() -> setShooterVelocity(speed));
+                    .setStart(() -> setShooterVelocity(speed))
+                    .setDone(() -> true);
         }
 
         public Command shootAllBalls(boolean slow){
             if (!slow){
                 return Command.build()
                         .setStart(() -> spindexerHandler(-480 - (spindexerTarget % 120), 600))
-                        .setDone(() -> spindexer.isBusy())
-                        .requiring(spindexer);
+                        .setDone(() -> !spindexer.isBusy());
+
             } else {
                 return Command.build()
                         .setStart(() -> spindexerHandler(-480 - (spindexerTarget % 120), 1300))
-                        .setDone(() -> spindexer.isBusy())
-                        .requiring(spindexer);
+                        .setDone(() -> !spindexer.isBusy());
+
             }
         }
 
         public Command setIntakeSpeed(double speed){
             return Command.build()
-                    .setStart(() -> setIntakeVelocity(speed));
+                    .setStart(() -> setIntakeVelocity(speed))
+                    .setDone(() -> true);
         }
 
         public Command turretToPosition(double degrees){
@@ -1105,6 +1107,7 @@ public class Hardware {
         public Command hoodSetAngle(double degrees) {
             return Command.build()
                     .setStart(() -> setHoodAngle(degrees))
+                    .setDone(() -> true)
                     .requiring(hoodAngle)
                     .setPriority(0);
         }
