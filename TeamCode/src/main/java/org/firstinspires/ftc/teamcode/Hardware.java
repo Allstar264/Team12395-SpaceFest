@@ -125,6 +125,7 @@ public class Hardware {
      */
     public void init() {
         pedroFollower = Constants.create(myOpMode.hardwareMap);
+        pedroFollower.setPose(new Pose(0,0,0));
 
         appContext = myOpMode.hardwareMap.appContext;
         // --- HARDWARE MAP NAMES ---
@@ -1053,10 +1054,11 @@ public class Hardware {
         }
 
         public Command shootAllBalls(boolean slow){
-            if (!slow){
+            if (slow){
                 return Command.build()
                         .setStart(() -> spindexerHandler(-480 - (spindexerTarget % 120), 600))
                         .setDone(() -> !spindexer.isBusy());
+
 
             } else {
                 return Command.build()
@@ -1068,8 +1070,7 @@ public class Hardware {
 
         public Command setIntakeSpeed(double speed){
             return Command.build()
-                    .setStart(() -> setIntakeVelocity(speed))
-                    .setDone(() -> true);
+                    .setStart(() -> setIntakeVelocity(speed));
         }
 
         public Command turretToPosition(double degrees){

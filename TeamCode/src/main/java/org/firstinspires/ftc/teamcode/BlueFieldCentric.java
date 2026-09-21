@@ -54,7 +54,7 @@ public class BlueFieldCentric extends LinearOpMode {
 
     public static double slowFireRateVelocity = 1800;
     public static int normalSpinVelocity = 1300;
-    public static Pose baseTargetPoint = new Pose(-65, -59);
+    public static Pose baseTargetPoint = new Pose(0, 144);
     public static double preSetAngleClose = 0.8;
     public static double preSetVelocityClose = 1400;
     public static double intakeVel = 2600;
@@ -79,7 +79,7 @@ public class BlueFieldCentric extends LinearOpMode {
 
         double effectiveDistanceToTarget;
         Pose effectiveTargetPoint;
-        Vector worldVelocity;
+        Vector2D worldVelocity;
 
         robot.init();
 
@@ -116,8 +116,8 @@ public class BlueFieldCentric extends LinearOpMode {
                 }
             }
 
-            worldVelocity = robot.pedroFollower.velocity().toVector();
             robot.pedroFollower.update();
+            worldVelocity = robot.pedroFollower.velocity().toVector2D();
             Pose currentPose = robot.pedroFollower.pose();
             distanceToTarget = baseTargetPoint.distance(currentPose);
             double linearVelocity = robot.tpsToLinearVelocityMETERS();
@@ -144,7 +144,7 @@ public class BlueFieldCentric extends LinearOpMode {
 
             // THIS REMAINS IN INCHES
             // drift calculated with ideal values (velocity is not measured)
-            Vector2D drift = worldVelocity.times(flyWheelConstant*robot.timeToTarget(linearVelocity, robot.hoodAngleToBallisticAngle())).toVector2D();
+            Vector2D drift = worldVelocity.times( flyWheelConstant*robot.timeToTarget(linearVelocity, robot.hoodAngleToBallisticAngle()));
             // shift goal
             effectiveTargetPoint = baseTargetPoint.minus(drift.toPose());
 

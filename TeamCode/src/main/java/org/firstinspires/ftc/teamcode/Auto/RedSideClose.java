@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.Auto;
 
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
@@ -7,6 +7,7 @@ import com.pedropathing.ivy.Scheduler;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import org.firstinspires.ftc.teamcode.Hardware;
 import  org.firstinspires.ftc.teamcode.pedro.Constants;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
@@ -17,17 +18,17 @@ import static com.pedropathing.ivy.commands.Commands.waitMs;
 import static com.pedropathing.ivy.groups.Groups.*;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 
-@Autonomous(name="Blue Pedro", group="Auto")
-public class auto extends LinearOpMode {
+@Autonomous(name="Red Pedro", group="Auto")
+public class RedSideClose extends LinearOpMode {
     private Follower follower;
     Hardware robot = new Hardware(this);
     Hardware.PedroActions library =  robot.new PedroActions();
 
-    private final PoseFactory poseFactory = PoseFactory.degrees();
+    private final PoseFactory poseFactory = PoseFactory.degrees().mirrorX(70.75);
 
     private final Pose start = poseFactory.of(20.1718, 118.3967, 144);
     private final Pose shootingPosStart = poseFactory.of(20.1718, 118.3967, 144);
-    private final Pose shootingPos = poseFactory.of(47, 94.4, 144);
+    private final Pose shootingPos = poseFactory.of(47, 94.4, 180);
     private final Pose firstSpike = poseFactory.of(40, 83, 180);
     private final Pose firstSpikeControl1 = poseFactory.of(50.2757, 81.5957, 0);
     private final Pose end1stSpike = poseFactory.of(16.8115, 82.5974, 180);
@@ -37,7 +38,7 @@ public class auto extends LinearOpMode {
     private final Pose end2ndSpike = poseFactory.of(13.2333, 58.2013, 180);
     private final Pose shootingPos3 = poseFactory.of(47.32, 94.8114, 180);
     private final Pose shootingPos3Control1 = poseFactory.of(58.7443, 64.49, 0);
-    private final Pose gate = poseFactory.of(12.4154, 59.4074, 120);
+    private final Pose gate = poseFactory.of(12.4154, 59.4074, 140);
     private final Pose gateControl1 = poseFactory.of(38.6343, 65.5514, 0);
     private final Pose shootingPos4 = poseFactory.of(47.1671, 95.8329, 180);
     private final Pose shootingPos4Control1 = poseFactory.of(47.5743, 71.0229, 0);
@@ -47,42 +48,47 @@ public class auto extends LinearOpMode {
     public Command autoRoutine() {
         return sequential(
                 parallel(
-                library.setShooterSpeed(1200),
-                follow(follower, shootingPos())
-                        ),
+                        library.setShooterSpeed(1200),
+                        follow(follower, shootingPos())
+                ),
                 library.shootAllBalls(false),
                 parallel(
                         follow(follower, firstSpike()),
-                        library.turretToPosition(-30)
-                        ) ,
-                library.setIntakeSpeed(2000),
+                        race(
+                                library.turretToPosition(-30),
+                                waitMs(500)
+                        )
+                ),
+                race(
+                        library.setIntakeSpeed(2000),
+                        waitMs(1)
+                ),
                 follow(follower, end1stSpike()),
-                library.setIntakeSpeed(0),
                 follow(follower, shootingPos2()),
+                race(
+                        library.setIntakeSpeed(2000),
+                        waitMs(1)
+                ),
                 library.shootAllBalls(false),
                 follow(follower, secondSpike()),
-                library.setIntakeSpeed(1000),
-
+                race(
+                        library.setIntakeSpeed(2000),
+                        waitMs(1)
+                ),
                 follow(follower, end2ndSpike()),
-                                waitMs(200),
-                                race(
-                                        library.setIntakeSpeed(0),
-                                        waitMs(50)
-                                ),
                 follow(follower, shootingPos3()),
+                race(
+                        library.setIntakeSpeed(2000),
+                        waitMs(1)
+                ),
                 library.shootAllBalls(false),
-                waitMs(1000),
+                race(
+                        library.setIntakeSpeed(2000),
+                        waitMs(1)
+                ),
                 follow(follower, gate()),
-                                        race(
-                                                library.setIntakeSpeed(1000),
-                                                waitMs(1000)
-                                        ),
-                waitMs(1000),
+                waitMs(2500),
                 follow(follower, shootingPos4()),
-                                                race(
-                                                        library.setIntakeSpeed(0),
-                                                        waitMs(50)
-                                                ),
                 library.shootAllBalls(false)
 
         );
@@ -96,6 +102,18 @@ public class auto extends LinearOpMode {
         follower.setPose(start);
         follower.update();
 
+        telemetry.addData("START X", start.x());
+        telemetry.addData("START Y", start.y());
+        telemetry.addData("START H", Math.toDegrees(start.heading()));
+
+        telemetry.addData("TARGET X", shootingPos.x());
+        telemetry.addData("TARGET Y", shootingPos.y());
+        telemetry.addData("TARGET H", Math.toDegrees(shootingPos.heading()));
+
+        telemetry.addData("FOLLOWER H",
+                Math.toDegrees(follower.pose().heading()));
+
+        telemetry.update();
         waitForStart();
         schedule(autoRoutine());
 
@@ -107,6 +125,15 @@ public class auto extends LinearOpMode {
             telemetry.addData("x", follower.pose().x());
             telemetry.addData("y", follower.pose().y());
             telemetry.addData("heading", follower.pose().heading());
+            telemetry.addData("START heading",
+                    Math.toDegrees(start.heading()));
+
+            telemetry.addData("TARGET heading",
+                    Math.toDegrees(shootingPos.heading()));
+
+            telemetry.addData("FOLLOWER heading",
+                    Math.toDegrees(follower.pose().heading()));
+            telemetry.addData("Robot forward velocity", follower.twist().vx);
 
             if (follower.currentPath() != null) {
                 telemetry.addData("Current path distance remaining", follower.distanceToEndpoint());
@@ -118,7 +145,7 @@ public class auto extends LinearOpMode {
     }
 
     public Path shootingPos() {
-        return line(shootingPosStart, shootingPos).linear(shootingPosStart, shootingPos);
+        return line(shootingPosStart, shootingPos).constant(shootingPosStart);
     }
 
     public Path firstSpike() {

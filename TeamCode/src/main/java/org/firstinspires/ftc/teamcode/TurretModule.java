@@ -50,19 +50,17 @@ public class TurretModule {
         secondaryController.setSetPoint(target);
     }
 
-    public void update(){
-        boolean thresholdReached = setActiveController();
-        if (thresholdReached){
-            update();
+
+    public void update() {
+        setActiveController();
+        double output = activeController.calculate(getCurrentPosition(), getCurrentVelocity());
+        if (!activeController.atSetPoint()){
+            setServoPowers(output);
         } else {
-            double output = activeController.calculate(getCurrentPosition(), getCurrentVelocity());
-            if (!activeController.atSetPoint()){
-                setServoPowers(output);
-            } else {
-                stopServos();
-            }
+            stopServos();
         }
     }
+
 
     public boolean setActiveController(){
         if (!activeController.equals(secondaryController)
