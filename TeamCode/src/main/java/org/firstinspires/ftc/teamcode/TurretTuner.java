@@ -16,10 +16,10 @@ public class TurretTuner extends OpMode {
     // NOTE: One hardware instance per OpMode keeps mapping/IMU use simple and testable
     Hardware robot = new Hardware(this);
 
-    public static double targetPos = 700;
-    public static double targetPos2 = 400;
-    public static double currentPos;
-    public static double cycles = 20;
+    public static volatile double targetPos = 20;
+    public static volatile double targetPos2 = 0;
+    public static volatile double currentPos;
+    public static volatile double cycles = 20;
     public static double P1;
     public static double I1;
     public static double D1;
@@ -30,7 +30,7 @@ public class TurretTuner extends OpMode {
     public static double D2;
     public static double F2;
 
-    public static double TelemPos;
+    public static volatile double TelemPos;
 
     double clock = 0;
     boolean slow = true;
@@ -67,6 +67,9 @@ public class TurretTuner extends OpMode {
             clock = 0;
         }
 
+
+        turret.update();
+
         if (slow) {
             turret.setTargetDegrees(targetPos);
             currentPos = turret.getCurrentDegrees();
@@ -77,7 +80,7 @@ public class TurretTuner extends OpMode {
             TelemPos = targetPos2;
         }
 
-        turret.setControllerToUse(controller);
+        turret.update();
 
         telemetry.addData("target Velocity: ", TelemPos);
         telemetry.addData("current Velocity: ", currentPos);

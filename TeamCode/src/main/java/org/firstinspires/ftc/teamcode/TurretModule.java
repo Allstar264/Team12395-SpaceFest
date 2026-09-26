@@ -1,9 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.ftc.OverflowEncoder;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.util.Range;
 
+@Config
 public class TurretModule {
     private double targetDegrees = 0;
     private double lastVelocity = 0;
@@ -15,16 +17,16 @@ public class TurretModule {
     public static int maxTurnCW = 140;
     OverflowEncoder encoder;
     CRServo servo1, servo2;
-    public static double P1 = 0.00035;
-    public static double I1 = 0.00002;
-    public static double D1 = 0.00004;
-    public static double F1 = 0;
+    public static volatile double P1 = 0.00035;
+    public static volatile double I1 = 0.00002;
+    public static volatile double D1 = 0.00004;
+    public static volatile double F1 = 0;
     PIDFCustomLoop primaryController = new PIDFCustomLoop(P1, I1, D1, F1);
 
-    public static double P2 = 0.00035;
-    public static double I2 = 0.00002;
-    public static double D2 = 0.00004;
-    public static double F2 = 0;
+    public static volatile double P2 = 0.00035;
+    public static volatile double I2 = 0.00002;
+    public static volatile double D2 = 0.00004;
+    public static volatile double F2 = 0;
     PIDFCustomLoop secondaryController = new PIDFCustomLoop(P2, I2, D2, F2);
     PIDFCustomLoop activeController = primaryController;
 
@@ -141,5 +143,10 @@ public class TurretModule {
             activeController = primaryController;
             setTargetDegrees(targetDegrees);
         }
+    }
+
+    public void updatePIDF(){
+        primaryController.setPIDF(P1, I1, D1, F1);
+        secondaryController.setPIDF(P2, I2, D2, F2);
     }
 }

@@ -125,7 +125,7 @@ public class Hardware {
      */
     public void init() {
         pedroFollower = Constants.create(myOpMode.hardwareMap);
-        pedroFollower.setPose(new Pose(0,0,0));
+        pedroFollower.setPose(new Pose(72,72,Math.toRadians(180)));
 
         appContext = myOpMode.hardwareMap.appContext;
         // --- HARDWARE MAP NAMES ---
@@ -515,6 +515,8 @@ public class Hardware {
                 Pose rawPose = new Pose(rawMT2Position.x,
                         rawMT2Position.y,
                         rawMT2Pose3D.getOrientation().getYaw(AngleUnit.RADIANS));
+
+                rawPose = UtilFunctions.ftcPoseToPedro(rawPose);
 
                 Pose rotatedPose = new Pose(rawPose.x(), rawPose.y(),
                         rawPose.heading() + Math.toRadians(-turretAngle));
@@ -1086,6 +1088,7 @@ public class Hardware {
         public Command turretStop(){
             return Command.build()
                     .setStart(() -> turretModule.stopServos())
+                    .setDone(() -> true)
                     .requiring(turretModule)
                     .setPriority(0);
         }
@@ -1122,6 +1125,20 @@ public class Hardware {
         }
 
 
+        public Command adjustspindexer() {
+            return Command.build()
+                    .setStart(() -> spindexerHandler(-30 - (spindexerTarget % 30), 1400))
+                    .setDone(() -> !spindexer.isBusy());
+        }
+
+        public Command zerospindexer(){
+            return Command.build()
+                    .setStart(() -> maintainSpindexerHandler())
+                    .setDone(() -> !spindexer.isBusy());
+
+
+        }
     }
+
 
 }

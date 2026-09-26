@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.Auto;
 
-import android.util.SparseArray;
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.ivy.Command;
@@ -19,49 +18,57 @@ import static com.pedropathing.ivy.commands.Commands.waitMs;
 import static com.pedropathing.ivy.groups.Groups.*;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 
-@Autonomous(name="Red Pedro", group="Auto")
-public class Red18Far extends LinearOpMode {
+@Autonomous(name="15BlueBack", group="Auto")
+public class Blue15Far extends LinearOpMode {
     private Follower follower;
     Hardware robot = new Hardware(this);
     Hardware.PedroActions library = robot.new PedroActions();
 
-    private final PoseFactory poseFactory = PoseFactory.degrees();
+    private final PoseFactory poseFactory = PoseFactory.degrees().mirrorX(70.25);
 
-    private final Pose start1stShootingPos = poseFactory.of(56, 9.3, 90);
-    private final Pose firstBall = poseFactory.of(10, 9.3, 180);
-    private final Pose shootingPos2 = poseFactory.of(56, 9.3, 180);
-    private final Pose point3rdSpike = poseFactory.of(44, 35, 180);
-    private final Pose point3rdSpikeControl1 = poseFactory.of(59.5714, 33.6951, 0);
-    private final Pose endof3rdSpike = poseFactory.of(9, 35, 180);
-    private final Pose shootingPos3 = poseFactory.of(56, 9.3, 180);
-    private final Pose shootingPos3Control1 = poseFactory.of(59.1886, 34.8251, 0);
-    private final Pose point61stTunnelIntake = poseFactory.of(9, 28, 180);
-    private final Pose point61stTunnelIntakeControl1 = poseFactory.of(50, 30, 0);
-    private final Pose shottingPos4 = poseFactory.of(56, 9.3, 180);
-    private final Pose shottingPos4Control1 = poseFactory.of(58, 32, 0);
-    private final Pose point82ndTunnelIntake = poseFactory.of(9, 28, 180);
-    private final Pose point82ndTunnelIntakeControl1 = poseFactory.of(50, 30, 0);
-    private final Pose shootingPos5 = poseFactory.of(56, 9.3, 180);
-    private final Pose shootingPos5Control1 = poseFactory.of(58, 32, 0);
+    private final Pose start1stShootingPos = poseFactory.of(85.5, 9.3, 0);
+    private final Pose firstBall = poseFactory.of(132.5, 9.3, 0);
+    private final Pose shootingPos2 = poseFactory.of(85.5, 9.3, 0);
+    private final Pose point33rdSpike = poseFactory.of(97.5, 35, 0);
+    private final Pose point33rdSpikeControl1 = poseFactory.of(81.9286, 33.6951, 0);
+    private final Pose endof3rdSpike = poseFactory.of(132.5, 35, 0);
+    private final Pose shootingPos3 = poseFactory.of(85.5, 9.3, 0);
+    private final Pose shootingPos3Control1 = poseFactory.of(82.3114, 34.8251, 0);
+    private final Pose point61stTunnelIntake = poseFactory.of(132.5, 14, 0);
+    private final Pose point61stTunnelIntakeControl1 = poseFactory.of(91.5, 30, 0);
+    private final Pose shottingPos4 = poseFactory.of(85.5, 9.3, 0);
+    private final Pose shottingPos4Control1 = poseFactory.of(83.5, 32, 0);
+    private final Pose point82ndTunnelIntake = poseFactory.of(132.5, 14, 0);
+    private final Pose point82ndTunnelIntakeControl1 = poseFactory.of(91.5, 30, 0);
+    private final Pose shootingPos5 = poseFactory.of(85.5, 9.3, 0);
+    private final Pose shootingPos5Control1 = poseFactory.of(83.5, 32, 0);
 
+    private final Pose leave = poseFactory.of(83.5,55,0);
 
     // Autonomous routine
     public Command autoRoutine() {
         return sequential(
                 parallel(
-                        library.hoodSetAngle(0.27),
-                        library.setShooterSpeed(1900)
+                        library.hoodSetAngle(0.2),
+                        library.setShooterSpeed(1850)
                 ),
-                race(
-                        library.turretToPosition(-30),
-                        waitMs(500)
+                sequential(
+                        race(
+                                library.turretToPosition(66),
+                                waitMs(1500)
+                        ),
+                        library.turretStop()
                 ),
+                waitMs(1500),
                 library.shootAllBalls(true),
                 race(
                         library.setIntakeSpeed(2000),
                         waitMs(1)
-                        ),
-                follow(follower, firstBall()),
+                ),
+                parallel(
+                        library.hoodSetAngle(0.23),
+                        follow(follower, firstBall())
+                ),
                 waitMs(1500),
                 follow(follower, shootingPos2()),
                 race(
@@ -74,7 +81,8 @@ public class Red18Far extends LinearOpMode {
                                 library.setIntakeSpeed(2000),
                                 waitMs(1)
                         ),
-                        follow(follower, path3rdSpike())
+                        follow(follower, path33rdSpike()),
+                        library.zerospindexer()
                 ),
 
                 follow(follower, endof3rdSpike()),
@@ -83,11 +91,42 @@ public class Red18Far extends LinearOpMode {
                         library.setIntakeSpeed(0),
                         waitMs(1)
                 ),
-
-                follow(follower, path61stTunnelIntake()),
+                library.shootAllBalls(true),
+                parallel(
+                        follow(follower, path61stTunnelIntake()),
+                        race(
+                                library.setIntakeSpeed(2000),
+                                waitMs(1)
+                        ),
+                        library.zerospindexer()
+                ),
+                waitMs(500),
                 follow(follower, shottingPos4()),
-                follow(follower, path82ndTunnelIntake()),
-                follow(follower, shootingPos5())
+                race(library.setIntakeSpeed(0),
+                        waitMs(1)
+                ),
+                library.shootAllBalls(true),
+                parallel(
+                        follow(follower, path82ndTunnelIntake()),
+                        race(
+                                library.setIntakeSpeed(2000),
+                                waitMs(1)
+                        ),
+                        library.zerospindexer()
+                ),
+                waitMs(500),
+                follow(follower, shootingPos5()),
+                library.shootAllBalls(true),
+                parallel(
+                        follow(follower, leave()),
+                        sequential(
+                                race(
+                                        library.turretToPosition(66),
+                                        waitMs(1000)
+                                ),
+                                library.turretStop()
+                        )
+                )
         );
     }
 
@@ -137,12 +176,12 @@ public class Red18Far extends LinearOpMode {
         return line(firstBall, shootingPos2).constant(shootingPos2);
     }
 
-    public Path path3rdSpike() {
-        return curve(shootingPos2, point3rdSpikeControl1, point3rdSpike).constant(point3rdSpike);
+    public Path path33rdSpike() {
+        return curve(shootingPos2, point33rdSpikeControl1, point33rdSpike).constant(point33rdSpike);
     }
 
     public Path endof3rdSpike() {
-        return line(point3rdSpike, endof3rdSpike).constant(endof3rdSpike);
+        return line(point33rdSpike, endof3rdSpike).constant(endof3rdSpike);
     }
 
     public Path shootingPos3() {
@@ -163,6 +202,10 @@ public class Red18Far extends LinearOpMode {
 
     public Path shootingPos5() {
         return curve(point82ndTunnelIntake, shootingPos5Control1, shootingPos5).constant(shootingPos5);
+    }
+
+    public Path leave() {
+        return line(shootingPos5, leave).constant(leave);
     }
 }
 

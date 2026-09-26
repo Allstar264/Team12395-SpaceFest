@@ -219,7 +219,7 @@ public class BlueFieldCentric extends LinearOpMode {
             Drawing.drawRobot(packet.fieldOverlay(), currentPose);
             // Turret angle (green)
             packet.fieldOverlay().setStroke("#008000");
-            Drawing.drawRobot(packet.fieldOverlay(), currentPose.withHeading(currentPose.heading() - angle));
+            Drawing.drawRobot(packet.fieldOverlay(), currentPose.withHeading(currentPose.heading() - robot.turretModule.getCurrentDegrees()));
 
             FtcDashboard.getInstance().sendTelemetryPacket(packet);
 
