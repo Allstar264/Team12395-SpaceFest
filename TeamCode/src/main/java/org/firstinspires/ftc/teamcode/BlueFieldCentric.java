@@ -54,7 +54,7 @@ public class BlueFieldCentric extends LinearOpMode {
 
     public static double slowFireRateVelocity = 1800;
     public static int normalSpinVelocity = 1300;
-    public static Pose baseTargetPoint = new Pose(0, 144);
+    public static Pose baseTargetPoint = new Pose(0, 134);
     public static double preSetAngleClose = 0.8;
     public static double preSetVelocityClose = 1400;
     public static double intakeVel = 2600;
@@ -98,6 +98,11 @@ public class BlueFieldCentric extends LinearOpMode {
             lateral =  gamepad1.left_stick_x;
             yaw     =  gamepad1.right_stick_x;
 
+            if (gamepad1.left_trigger > 0.1) {
+                axial*= 0.6;
+                lateral*= 0.6;
+                yaw*= 0.6;
+            }
             robot.driveFieldCentric(axial, lateral, yaw);
 
 
@@ -219,7 +224,7 @@ public class BlueFieldCentric extends LinearOpMode {
             Drawing.drawRobot(packet.fieldOverlay(), currentPose);
             // Turret angle (green)
             packet.fieldOverlay().setStroke("#008000");
-            Drawing.drawRobot(packet.fieldOverlay(), currentPose.withHeading(currentPose.heading() - robot.turretModule.getCurrentDegrees()));
+            Drawing.drawRobot(packet.fieldOverlay(), currentPose.withHeading(currentPose.heading() - Math.toRadians(robot.turretModule.getCurrentDegrees())));
 
             FtcDashboard.getInstance().sendTelemetryPacket(packet);
 

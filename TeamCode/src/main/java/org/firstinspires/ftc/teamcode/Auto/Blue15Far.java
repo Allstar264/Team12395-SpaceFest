@@ -54,7 +54,7 @@ public class Blue15Far extends LinearOpMode {
                 ),
                 sequential(
                         race(
-                                library.turretToPosition(66),
+                                library.turretToPosition(66.5),
                                 waitMs(1500)
                         ),
                         library.turretStop()

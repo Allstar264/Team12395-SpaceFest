@@ -121,7 +121,7 @@ public class Red15Far extends LinearOpMode {
                        follow(follower, leave()),
                sequential(
                 race(
-                        library.turretToPosition(-65),
+                        library.turretToPosition(-65.5),
                         waitMs(1500)
                 ),
                 library.turretStop()

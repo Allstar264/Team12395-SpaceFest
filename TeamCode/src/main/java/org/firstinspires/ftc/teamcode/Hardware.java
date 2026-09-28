@@ -193,7 +193,7 @@ public class Hardware {
         // --- ENCODER MODES ---
         // WHY: Reset once at init for a clean baseline; then RUN_USING_ENCODER for closed-loop speed control if needed.
 
-        shooter2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        //shooter2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         spindexer.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         intake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
@@ -512,26 +512,23 @@ public class Hardware {
                 Position rawMT2Position = rawMT2Pose3D.getPosition().toUnit(DistanceUnit.INCH);
 
                 //TODO translate LL grid into RR grid before finalizing (including yaw & units)
-                Pose rawPose = new Pose(rawMT2Position.x,
+                Pose2d rawPose = new Pose2d(rawMT2Position.x,
                         rawMT2Position.y,
                         rawMT2Pose3D.getOrientation().getYaw(AngleUnit.RADIANS));
 
-                rawPose = UtilFunctions.ftcPoseToPedro(rawPose);
+                myOpMode.telemetry.addData("Raw Pose: ", rawPose.position);
 
-                Pose rotatedPose = new Pose(rawPose.x(), rawPose.y(),
-                        rawPose.heading() + Math.toRadians(-turretAngle));
+                Pose2d translatedPose = rawPose
+                        // camera-turret axis offset
+                        //.plus(new Twist2d(new Vector2d(cameraOffset,0), Math.toRadians(0)))
+                        // turret rotation
+                        .plus(new Twist2d(new Vector2d(0,0), Math.toRadians(-turretAngle)))
+                        // turret axis-bot center offset
+                        .plus(new Twist2d(new Vector2d(turretOffset,0), Math.toRadians(0)));
 
-                myOpMode.telemetry.addData("Raw Pose: ", rawPose);
+                myOpMode.telemetry.addData("Translated Pose: ", translatedPose.position);
 
-                Vector2D translatedCoordinates = rotatedPose.toVector2D()
-                        .plus(new Vector(turretOffset, rotatedPose.heading()).toVector2D());
-
-                Pose translatedPose = new Pose(translatedCoordinates.x(),
-                        translatedCoordinates.y(), rotatedPose.heading());
-
-                myOpMode.telemetry.addData("Translated Pose: ", translatedPose);
-
-                return translatedPose;
+                return UtilFunctions.ftcPoseToPedro(translatedPose);
             }
         }
         return new Pose(Double.NaN, Double.NaN, Math.toRadians(0));
@@ -544,18 +541,33 @@ public class Hardware {
     /**
      *
      * @param target
-     * @param currentPose
+     * @param current
      * @return radians
      */
-    public double turretAngleToTarget(Pose target, Pose currentPose){
+    public double turretAngleToTarget(Pose target, Pose current){
+
+        Pose2d currentPose = UtilFunctions.PedroPoseToFTCPose(current);
+        Pose2d targetPose = UtilFunctions.PedroPoseToFTCPose(target);
+
         // we only apply turret axis-bot center offset because we want to find targetHeading as the center of the turret.
         double turretOffset = 55 / 25.4;
 
-        Pose turretPose = currentPose.exp(new Twist(-turretOffset, 0, 0));
+        currentPose = currentPose
+                // turret axis-bot center offset
+                .plus(new Twist2d(new Vector2d(-turretOffset,0), Math.toRadians(0)));
 
-        Pose targetComponent = target.minus(turretPose);
 
-        return UtilFunctions.normalizeRadians(targetComponent.heading()-currentPose.heading());
+
+        Vector2d targetTanComponent = new Vector2d(
+                targetPose.position.x - currentPose.position.x,
+                targetPose.position.y - currentPose.position.y
+        );
+
+        Rotation2d targetHeading = Rotation2d.exp(
+                Math.atan2(targetTanComponent.y, targetTanComponent.x)
+        );
+
+        return targetHeading.minus(currentPose.heading);
     }
 
     public boolean processObelisk(){

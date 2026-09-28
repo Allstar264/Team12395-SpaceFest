@@ -33,5 +33,7 @@ repositories {
 dependencies {
     implementation project(':FtcRobotController')
     implementation "com.acmerobotics.roadrunner:ftc:0.1.25"
-    implementation 'com.acmerobotics.dashboard:dashboard:0.6.0'
+    implementation ('com.acmerobotics.dashboard:dashboard:0.6.0') {
+        exclude group: 'org.firstinspires.ftc'
+    }
 }

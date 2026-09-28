@@ -38,12 +38,12 @@ public class RedSideClose extends LinearOpMode {
     private final Pose end2ndSpike = poseFactory.of(128, 57, 0);
     private final Pose shootingPos3 = poseFactory.of(94.18, 94.8114, 0);
     private final Pose shootingPos3Control1 = poseFactory.of(74.981, 63.1942, 0);
-    private final Pose gate = poseFactory.of(125, 57.75, 25);
+    private final Pose gate = poseFactory.of(126, 57.75, 25);
     private final Pose gateControl1 = poseFactory.of(75.80016722408027, 65.5514, 0);
     private final Pose shootingPos4 = poseFactory.of(94.5, 94.5, 0);
     private final Pose shootingPos4Control1 = poseFactory.of(93.9257, 71.0229, 0);
 
-    private final Pose gate2 = poseFactory.of(125, 57.75, 25);
+    private final Pose gate2 = poseFactory.of(126, 57.75, 25);
     private final Pose gate2Control1 = poseFactory.of(75, 65.5514, 0);
     private final Pose shootingPos5 = poseFactory.of(94.5, 94.5, 0);
     private final Pose shootingPos5Control1 = poseFactory.of(80, 71.0229, 0);
