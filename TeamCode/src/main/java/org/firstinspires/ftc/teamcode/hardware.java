@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.pedropathing.ivy.Command;
+import static com.pedropathing.ivy.commands.Commands.*;
+import static com.pedropathing.ivy.groups.Groups.sequential;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.*;
 import com.qualcomm.robotcore.util.Range;
@@ -18,24 +21,22 @@ public class hardware {
 
     public GoBildaPinpointDriver pinpoint;
 
-    public double goalx = 90;
-    public double goaly = 72;
 
     public hardware() {
     }
 
     public void init(HardwareMap hardware){
-        frontLeftMotor = hardware.get(DcMotor.class, "front_left_motor");
-        backLeftMotor = hardware.get(DcMotor.class, "back_left_motor");
-        frontRightMotor = hardware.get(DcMotor.class, "front_right_motor");
-        backRightMotor = hardware.get(DcMotor.class, "back_right_motor");
-        intakeMotor = hardware.get(DcMotor.class, "intake_motor");
-        flyWheel = hardware.get(DcMotorEx.class, "front_fly_wheel");
-        turret = hardware.get(DcMotorEx.class, "turret");
-        intakeServo = hardware.get(Servo.class, "intake_servo");
-        turretstopperServo = hardware.get(Servo.class, "turret_servo");
-        hoodServo = hardware.get(Servo.class, "hood_servo");
-        pinpoint = hardware.get(GoBildaPinpointDriver.class, "pinpoint");
+        frontLeftMotor = hardware.get(DcMotor.class, "front_left_motor"); // CH 0
+        backLeftMotor = hardware.get(DcMotor.class, "back_left_motor"); // CH 1
+        frontRightMotor = hardware.get(DcMotor.class, "front_right_motor"); // CH 2
+        backRightMotor = hardware.get(DcMotor.class, "back_right_motor"); // CH 3
+        intakeMotor = hardware.get(DcMotor.class, "intake_motor"); // EH 1
+        flyWheel = hardware.get(DcMotorEx.class, "front_fly_wheel"); // EH 3
+        turret = hardware.get(DcMotorEx.class, "turret"); // EH 2
+        intakeServo = hardware.get(Servo.class, "intake_servo"); // EH 0
+        turretstopperServo = hardware.get(Servo.class, "turret_servo"); // EH 2B
+        hoodServo = hardware.get(Servo.class, "hood_servo"); // EH 1
+        pinpoint = hardware.get(GoBildaPinpointDriver.class, "pinpoint"); // EH 0
 
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.LEFT,        // e.g., logo pointing up
@@ -67,7 +68,12 @@ public class hardware {
         frontRightMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flyWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+
+        turret.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         turret.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        turret.setTargetPosition(0);
+
 
 
         flyWheel.setVelocityPIDFCoefficients(8, 0.4, 0, 14);
@@ -122,19 +128,32 @@ public class hardware {
 
         turret.setTargetPosition( (int) Math.round(targetPosition) );
         turret.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        turret.setPower(1);
     }
 
     public double turretaim (double goalx, double goaly, double robotx, double roboty, double heading ) {
 
+
         double dx = goalx - robotx;
         double dy = goaly - roboty;
 
-        double fieldAngle = Math.atan2(dy, dx);
+        double angle = Math.atan2(dy, dx) - heading;
+        angle = Math.atan2(Math.sin(angle), Math.cos(angle));
 
-        double turretAngle = fieldAngle - heading;
-
-        return turretAngle;
+        return Math.toDegrees(angle);
     }
+
+
+
+    public class PedroActions {
+        public Command setshooterspeed(double speed) {
+            return Command.build()
+                    .setStart(() -> setFlyWheel((int) speed))
+                    .setDone(() -> true);
+
+        }
+    }
+
 
 
     }
