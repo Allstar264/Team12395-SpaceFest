@@ -4,21 +4,28 @@ import static com.pedropathing.api.Paths.*;
 
 import com.pedropathing.api.PoseFactory;
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ivy.pedro.PedroCommands;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.ivy.Command;
 import com.pedropathing.ivy.Scheduler;
 import static com.pedropathing.ivy.Scheduler.schedule;
 import static com.pedropathing.ivy.commands.Commands.*;
+import static com.pedropathing.ivy.groups.Groups.parallel;
 import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import org.firstinspires.ftc.teamcode.OpModeStorage;
+import org.firstinspires.ftc.teamcode.hardware;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 
 @Autonomous(name = "AutoPath", group = "Autonomous")
 public class AutoRed extends LinearOpMode {
+    public hardware robot = new hardware();
 
+
+    public hardware.PedroActions library = robot.new PedroActions();
     private Follower follower;
 
     private final PoseFactory poseFactory = PoseFactory.degrees();
@@ -39,6 +46,12 @@ public class AutoRed extends LinearOpMode {
     // Autonomous routine
     public Command autoRoutine() {
         return sequential(
+                parallel(
+                library.setshooterspeed(1500),
+                library.servostopper(.5)
+                        ),
+                waitMs(1000),
+                library.intake(.85),
                 follow(follower, pos1()),
                 follow(follower, coll1()),
                 follow(follower, retract1()),
@@ -57,10 +70,14 @@ public class AutoRed extends LinearOpMode {
         follower.update();
 
         waitForStart();
+
         schedule(autoRoutine());
 
         while (opModeIsActive()) {
             follower.update();
+
+            OpModeStorage.autonomousEndPose = follower.pose();
+
             Scheduler.execute();
 
             telemetry.addData("x", follower.pose().x());
@@ -103,4 +120,6 @@ public class AutoRed extends LinearOpMode {
     public Path park() {
         return curve(retract2, parkControl1, park).linear(retract2, park);
     }
+
+
 }

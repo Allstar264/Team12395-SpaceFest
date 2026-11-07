@@ -22,15 +22,26 @@ public class teleOp extends OpMode {
 
     boolean turretoggle = false;
     double position = 0;
-    double hoodPosition = 0.75;
+
+    public static int velocity = 0;
+
+    public static double hoodPosition = 0;
+
+
+
 
     boolean shooterclock = false;
+
+    public static Pose targetPoint = new Pose(58, 54);
+
 
     double goalx = 58;
 
     double goaly = 54;
 
     double angle = 0;
+    double distanceToTarget;
+
 
     ElapsedTime shooterclockcounter = new ElapsedTime();
 
@@ -40,6 +51,12 @@ public class teleOp extends OpMode {
         follower = Constants.create(hardwareMap);
 
         follower.setPose(new Pose(0, 0, 0));
+    }
+
+    @Override
+    public void start(){
+        follower.setPose(OpModeStorage.autonomousEndPose);
+        follower.update();
     }
 
     @Override
@@ -61,7 +78,17 @@ public class teleOp extends OpMode {
         }
             follower.update();
 
-            Pose robotPose = follower.pose();
+        Pose robotPose = follower.pose();
+
+        if (robotPose.y() < 67) {
+            angle = robot.turretaim(goalx, goaly, robotPose.x(), robotPose.y(), robotPose.heading());
+            targetPoint = new Pose(goalx, goaly, 0);
+        } else if (robotPose.y() > 77) {
+            angle = robot.turretaim(goalx, goaly + 40, robotPose.x(), robotPose.y(), robotPose.heading());
+            targetPoint = new Pose(goalx, goaly + 40, 0);
+        }
+
+        distanceToTarget = Math.abs(targetPoint.distance(robotPose));
 
             if (gamepad1.squareWasPressed()) {
                 flowertoggle = !flowertoggle;
@@ -83,17 +110,30 @@ public class teleOp extends OpMode {
             }
 
 
-            if (gamepad1.dpadUpWasPressed()) {
-                hoodPosition += .025;
-            } else if (gamepad1.dpadDownWasPressed()) {
-                hoodPosition -= .025;
-            }
 
-            if (flyhweeltoggle) {
-                robot.setFlyWheel(1500);
-            } else {
-                robot.setFlyWheel(750);
-            }
+       /* if (flyhweeltoggle) {
+            velocity  = robot.getCalculatedVelocity(distanceToTarget);
+            telemetry.addData("Calculated Velocity: ", velocity);
+        }
+
+
+
+
+        robot.setFlyWheel((int) velocity);
+
+
+        */
+
+            if (gamepad1.dpadUpWasPressed()) {
+                velocity += 50;
+            } else if (gamepad1.dpadDownWasPressed()) {
+                velocity -= 50;
+                }
+
+
+
+
+
 
             if (gamepad1.left_bumper) {
                 shooterclock = true;
@@ -133,12 +173,6 @@ public class teleOp extends OpMode {
             }
 
 
-            if (robotPose.y() < 67) {
-                angle = robot.turretaim(goalx, goaly, robotPose.x(), robotPose.y(), robotPose.heading());
-            } else if (robotPose.y() > 77) {
-                angle = robot.turretaim(goalx, goaly + 40, robotPose.x(), robotPose.y(), robotPose.heading());
-            }
-
 
             if (turretoggle) {
                 robot.setTurret(angle);
@@ -146,7 +180,8 @@ public class teleOp extends OpMode {
                 robot.setTurret(0);
             }
 
-            robot.hoodServo.setPosition(hoodPosition);
+
+            robot.setFlyWheel(velocity);
 
 
             telemetry.addData("Velocity", robot.flyWheel.getVelocity());
@@ -155,9 +190,8 @@ public class teleOp extends OpMode {
             telemetry.addData("Robot Y (in)", robotPose.y());
             telemetry.addData("Robot Heading (deg)", Math.toDegrees(robotPose.heading()));
             telemetry.addData("Turret Position", angle);
-            telemetry.addData("Turret encoder", robot.turret.getCurrentPosition());
             telemetry.addData("Turret target", robot.turret.getTargetPosition());
-            telemetry.addData("Turret mode", robot.turret.getMode());
+            telemetry.addData(("Distance to Target"), distanceToTarget);
             telemetry.update();
 
 

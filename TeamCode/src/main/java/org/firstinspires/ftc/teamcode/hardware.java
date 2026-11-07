@@ -1,23 +1,25 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.pedropathing.ivy.Command;
-import static com.pedropathing.ivy.commands.Commands.*;
-import static com.pedropathing.ivy.groups.Groups.sequential;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.*;
 import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
-import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-
+import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public class hardware {
+
+    private OpMode myOpMode;
+
     public DcMotor frontLeftMotor, backLeftMotor, frontRightMotor, backRightMotor, intakeMotor;
     public DcMotorEx flyWheel, turret;
     public IMU imu;
-    public Servo intakeServo, turretstopperServo,hoodServo;
+    public Servo intakeServo, turretstopperServo;
 
     public GoBildaPinpointDriver pinpoint;
 
@@ -35,7 +37,6 @@ public class hardware {
         turret = hardware.get(DcMotorEx.class, "turret"); // EH 2
         intakeServo = hardware.get(Servo.class, "intake_servo"); // EH 0
         turretstopperServo = hardware.get(Servo.class, "turret_servo"); // EH 2B
-        hoodServo = hardware.get(Servo.class, "hood_servo"); // EH 1
         pinpoint = hardware.get(GoBildaPinpointDriver.class, "pinpoint"); // EH 0
 
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
@@ -143,15 +144,78 @@ public class hardware {
         return Math.toDegrees(angle);
     }
 
+    private ArrayList<double[]> velDataPoints = new ArrayList<>(Arrays.asList(
+            new double[]{37, 1030},
+            new double[]{50, 1100},
+            new double[]{62, 1220},
+            new double[]{87, 1270},
+            new double[]{91, 1290},
+            new double[]{98, 1320},
+            new double[]{134, 1500},
+            new double[]{148, 1550}
+    ));
+    private final double[] slopeList = initializeSlopeList();
+
+    private double[] initializeSlopeList(){
+        int maxIndex = velDataPoints.size();
+        double[] list = new double[maxIndex];
+        for (int i=0; i<maxIndex-1; i++){
+            list[i] = (
+                    (velDataPoints.get(i+1)[1] - velDataPoints.get(i)[1]) /
+                            (velDataPoints.get(i+1)[0] - velDataPoints.get(i)[0])
+            );
+        }
+
+        return list;
+    }
+
+    public double getCalculatedVelocity(double distance){
+        double returnVal = 500;
+
+        double velZeroIntercept = velDataPoints.get(0)[1] - slopeList[0]*velDataPoints.get(0)[0];
+
+        for (int i=0; i<slopeList.length; i++){
+            if (i == 0){
+                if (distance >= 0 && distance <= velDataPoints.get(0)[0]){
+                    myOpMode.telemetry.addData("Top Reference: ", velDataPoints.get(i)[0] +", " +velDataPoints.get(i)[1]);
+                    myOpMode.telemetry.addData("Slope Reference: ", slopeList[i]);
+                    returnVal = velZeroIntercept + distance*slopeList[0];
+                }
+            } else if ((i == slopeList.length-1 && distance >= velDataPoints.get(i)[0]) ||
+                    distance > velDataPoints.get(i)[0] && distance <= velDataPoints.get(i+1)[0]){
+                myOpMode.telemetry.addData("Bottom Reference: ", velDataPoints.get(i)[0] +", " +velDataPoints.get(i)[1]);
+                myOpMode.telemetry.addData("Slope Reference: ", slopeList[i]);
+                returnVal = velDataPoints.get(i)[1] + (distance-velDataPoints.get(i)[0])*slopeList[i];
+            }
+        }
+
+        return returnVal;
+    }
+
 
 
     public class PedroActions {
-        public Command setshooterspeed(double speed) {
+        public Command setshooterspeed(double velocity) {
             return Command.build()
-                    .setStart(() -> setFlyWheel((int) speed))
+                    .setStart(() -> flyWheel.setVelocity(velocity))
                     .setDone(() -> true);
 
         }
+
+        public Command servostopper(double position){
+            return Command.build()
+                    .setStart(() -> turretstopperServo.setPosition(position))
+                    .setDone(() -> true);
+        }
+
+        public Command intake(double power){
+            return Command.build()
+                    .setStart(() -> intakeMotor.setPower(power))
+                    .setDone(() -> true);
+        }
+
+
+
     }
 
 
