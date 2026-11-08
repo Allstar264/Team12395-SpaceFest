@@ -36,7 +36,7 @@ public class hardware {
         flyWheel = hardware.get(DcMotorEx.class, "front_fly_wheel"); // EH 3
         turret = hardware.get(DcMotorEx.class, "turret"); // EH 2
         intakeServo = hardware.get(Servo.class, "intake_servo"); // EH 0
-        turretstopperServo = hardware.get(Servo.class, "turret_servo"); // EH 2B
+        turretstopperServo = hardware.get(Servo.class, "stopper_servo"); // EH 2B
         pinpoint = hardware.get(GoBildaPinpointDriver.class, "pinpoint"); // EH 0
 
         IMU.Parameters parameters = new IMU.Parameters(new RevHubOrientationOnRobot(
@@ -144,7 +144,7 @@ public class hardware {
         return Math.toDegrees(angle);
     }
 
-    private ArrayList<double[]> velDataPoints = new ArrayList<>(Arrays.asList(
+   /* private ArrayList<double[]> velDataPoints = new ArrayList<>(Arrays.asList(
             new double[]{37, 1030},
             new double[]{50, 1100},
             new double[]{62, 1220},
@@ -190,7 +190,7 @@ public class hardware {
         }
 
         return returnVal;
-    }
+    } */
 
 
 

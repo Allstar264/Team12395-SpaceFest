@@ -17,6 +17,8 @@ public class teleOp extends OpMode {
 
     boolean flowertoggle = false;
 
+    boolean stoppertoggle = false;
+
 
     boolean flyhweeltoggle = false;
 
@@ -71,7 +73,7 @@ public class teleOp extends OpMode {
         follower.manual(powers);
 
 
-        if (gamepad1.xWasPressed()) {
+        if (gamepad2.aWasPressed()) {
             Pose cornerPose = new Pose(10.5, 10.5, Math.toRadians(90));
             follower.setPose(cornerPose);
 
@@ -102,6 +104,10 @@ public class teleOp extends OpMode {
                 turretoggle = !turretoggle;
             }
 
+            if (gamepad2.xWasPressed()) {
+                stoppertoggle = !stoppertoggle;
+            }
+
 
             if (flowertoggle) {
                 robot.intakeServo.setPosition(.95);
@@ -124,11 +130,11 @@ public class teleOp extends OpMode {
 
         */
 
-            if (gamepad1.dpadUpWasPressed()) {
-                velocity += 50;
-            } else if (gamepad1.dpadDownWasPressed()) {
-                velocity -= 50;
-                }
+            if (flyhweeltoggle) {
+                robot.setFlyWheel(1350);
+            } else {
+                robot.setFlyWheel(1000);
+            }
 
 
 
@@ -153,23 +159,29 @@ public class teleOp extends OpMode {
                 position -= gamepad2.right_trigger * 5;
             }
 
-            if (shooterclock) {
+          /*  if (shooterclock) {
                 if (!(shooterclockcounter.seconds() > 0)) {
                     shooterclockcounter.startTime();
                 }
 
                 if (shooterclockcounter.seconds() > 0.1) {
-                    robot.turretstopperServo.setPosition(.5);
+                    robot.turretstopperServo.setPosition(.6);
                 }
 
-                if (shooterclockcounter.seconds() >= 1.1) {
-                    robot.intakeMotor.setPower(.85);
+                if (shooterclockcounter.seconds() >= 1.6) {
+                    robot.intakeMotor.setPower(1);
 
                     shooterclockcounter.reset();
                     shooterclock = false;
                 }
             } else {
-                robot.turretstopperServo.setPosition(0.80);
+                robot.turretstopperServo.setPosition(0.3);
+            } */
+
+            if (stoppertoggle) {
+                robot.turretstopperServo.setPosition(.6);
+            } else {
+                robot.turretstopperServo.setPosition(0.3);
             }
 
 
@@ -181,7 +193,7 @@ public class teleOp extends OpMode {
             }
 
 
-            robot.setFlyWheel(velocity);
+
 
 
             telemetry.addData("Velocity", robot.flyWheel.getVelocity());

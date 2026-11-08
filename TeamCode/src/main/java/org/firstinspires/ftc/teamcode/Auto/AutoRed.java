@@ -47,11 +47,11 @@ public class AutoRed extends LinearOpMode {
     public Command autoRoutine() {
         return sequential(
                 parallel(
-                library.setshooterspeed(1500),
+                library.setshooterspeed(1400),
                 library.servostopper(.5)
                         ),
                 waitMs(1000),
-                library.intake(.85),
+                library.intake(1),
                 follow(follower, pos1()),
                 follow(follower, coll1()),
                 follow(follower, retract1()),
