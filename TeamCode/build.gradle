@@ -28,12 +28,19 @@ repositories {
     maven {
         url = 'https://maven.brott.dev/'
     }
+
+    mavenCentral()
+    maven { url 'https://repo.dairy.foundation/releases/'}
 }
 
 dependencies {
     implementation project(':FtcRobotController')
     implementation "com.acmerobotics.roadrunner:ftc:0.1.25"
     implementation ('com.acmerobotics.dashboard:dashboard:0.6.0') {
-        exclude group: 'com.acmerobotics.dashboard'
+        exclude group: 'org.firstinspires.ftc'
     }
+
+    implementation 'com.pedropathing:revhub:3.0.1'
+    implementation 'com.pedropathing:tuning:1.0.0'
+    implementation 'com.pedropathing.ivy:pedro:1.1.1'
 }
